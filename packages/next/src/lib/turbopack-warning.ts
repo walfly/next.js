@@ -52,6 +52,7 @@ const supportedTurbopackNextConfigOptions = [
   'experimental.optimizePackageImports',
   'experimental.optimizeServerReact',
   'experimental.webpackBuildWorker',
+  'experimental.serverActions',
 ]
 
 // The following will need to be supported by `next build --turbo`

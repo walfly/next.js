@@ -416,6 +416,7 @@ pub struct ExperimentalConfig {
     client_router_filter_redirects: Option<bool>,
     // Doesn't apply to Turbopack.
     webpack_build_worker: Option<bool>,
+    server_actions: Option<bool>,
 
     // unsupported
     optimize_package_imports: Option<Vec<String>>,
@@ -653,6 +654,13 @@ impl NextConfig {
     pub async fn skip_trailing_slash_redirect(self: Vc<Self>) -> Result<Vc<bool>> {
         Ok(Vc::cell(
             self.await?.skip_trailing_slash_redirect.unwrap_or(false),
+        ))
+    }
+
+    #[turbo_tasks::function]
+    pub async fn enable_server_actions(self: Vc<Self>) -> Result<Vc<bool>> {
+        Ok(Vc::cell(
+            self.await?.experimental.server_actions.unwrap_or(false),
         ))
     }
 }
