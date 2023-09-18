@@ -362,6 +362,7 @@ impl Project {
             this.mode,
             self.env(),
             self.server_addr(),
+            self.next_config(),
         ))
     }
 
