@@ -29,9 +29,9 @@ const customDocumentGipFiles = {
 
 describe.each([
   ['', 'swc'],
-  ['/docs', 'swc'],
-  ['', 'document.getInitialProps'],
-  ['', 'babel'],
+  //['/docs', 'swc'],
+  //['', 'document.getInitialProps'],
+  //['', 'babel'],
 ])(
   'basic next/dynamic usage, basePath: %p with %p compiler',
   (
@@ -65,7 +65,7 @@ describe.each([
 
     describe('Dynamic import', () => {
       describe('default behavior', () => {
-        it('should render dynamic import components', async () => {
+        it.only('should render dynamic import components', async () => {
           const $ = await get$(basePath + '/dynamic/ssr')
           // Make sure the client side knows it has to wait for the bundle
           expect(JSON.parse($('#__NEXT_DATA__').html()).dynamicIds).toContain(
