@@ -147,6 +147,13 @@ pub struct AppPathsManifest {
 
 #[derive(Serialize, Default, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct LodableManifest {
+    id: String,
+    files: Vec<String>,
+}
+
+#[derive(Serialize, Default, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerReferenceManifest {
     #[serde(flatten)]
     pub server_actions: ActionManifest,

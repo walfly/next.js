@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Context, Result};
 use indexmap::IndexMap;
 use next_core::{
@@ -11,8 +13,8 @@ use next_core::{
     next_dynamic::NextDynamicTransition,
     next_edge::route_regex::get_named_middleware_regex,
     next_manifests::{
-        BuildManifest, EdgeFunctionDefinition, MiddlewareMatcher, MiddlewaresManifestV2,
-        PagesManifest,
+        BuildManifest, EdgeFunctionDefinition, LodableManifest, MiddlewareMatcher,
+        MiddlewaresManifestV2, PagesManifest,
     },
     next_pages::create_page_ssr_entry_module,
     next_server::{
@@ -63,6 +65,7 @@ use turbopack_binding::{
 
 use crate::{
     project::Project,
+    react_lodable::create_react_lodable_manifest,
     route::{Endpoint, Route, Routes, WrittenEndpoint},
 };
 
@@ -611,6 +614,8 @@ impl PageEndpoint {
                 config.runtime,
             );
 
+            create_react_lodable_manifest(ssr_module).await?;
+
             let mut evaluatable_assets = edge_runtime_entries.await?.clone_value();
             let Some(evaluatable) = Vc::try_resolve_sidecast(ssr_module).await? else {
                 bail!("Entry module must be evaluatable");
@@ -633,6 +638,8 @@ impl PageEndpoint {
                 this.original_name,
                 config.runtime,
             );
+
+            create_react_lodable_manifest(ssr_module).await?;
 
             let asset_path = get_asset_path_from_pathname(&this.pathname.await?, ".js");
 
@@ -809,6 +816,27 @@ impl PageEndpoint {
                 server_assets.push(pages_manifest);
                 server_assets.push(entry);
 
+                let node_root = this.pages_project.project().node_root();
+
+                //create_react_lodable_manifest2(entry).await?;
+
+                let mut lodable_manifest: HashMap<String, LodableManifest> = Default::default();
+                lodable_manifest.insert("dummy_page_node".to_string(), LodableManifest::default());
+
+                let lodable_path_prefix = get_asset_prefix_from_pathname(&this.pathname.await?);
+                let lodable_manifest = Vc::upcast(VirtualOutputAsset::new(
+                    node_root.join(format!(
+                        "server/pages{lodable_path_prefix}/react-loadable-manifest.json"
+                    )),
+                    AssetContent::file(
+                        FileContent::Content(File::from(serde_json::to_string_pretty(
+                            &lodable_manifest,
+                        )?))
+                        .cell(),
+                    ),
+                ));
+                server_assets.push(lodable_manifest);
+
                 PageEndpointOutput::NodeJs {
                     entry_chunk: entry,
                     server_assets: Vc::cell(server_assets),
@@ -874,6 +902,24 @@ impl PageEndpoint {
                     ),
                 ));
                 server_assets.push(middleware_manifest_v2);
+
+                //create_react_lodable_manifest2(entry).await?;
+                let mut lodable_manifest: HashMap<String, LodableManifest> = Default::default();
+                lodable_manifest.insert("dummy_page_edge".to_string(), LodableManifest::default());
+
+                let lodable_path_prefix = get_asset_prefix_from_pathname(&this.pathname.await?);
+                let lodable_manifest = Vc::upcast(VirtualOutputAsset::new(
+                    node_root.join(format!(
+                        "server/pages{lodable_path_prefix}/react-loadable-manifest.json"
+                    )),
+                    AssetContent::file(
+                        FileContent::Content(File::from(serde_json::to_string_pretty(
+                            &lodable_manifest,
+                        )?))
+                        .cell(),
+                    ),
+                ));
+                server_assets.push(lodable_manifest);
 
                 PageEndpointOutput::Edge {
                     files,

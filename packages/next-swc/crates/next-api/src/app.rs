@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Context, Result};
 use next_core::{
     all_server_paths,
@@ -22,7 +24,8 @@ use next_core::{
     next_edge::route_regex::get_named_middleware_regex,
     next_manifests::{
         AppBuildManifest, AppPathsManifest, BuildManifest, ClientReferenceManifest,
-        EdgeFunctionDefinition, MiddlewareMatcher, MiddlewaresManifestV2, PagesManifest, Regions,
+        EdgeFunctionDefinition, LodableManifest, MiddlewareMatcher, MiddlewaresManifestV2,
+        PagesManifest, Regions,
     },
     next_server::{
         get_server_module_options_context, get_server_resolve_options_context,
@@ -48,12 +51,13 @@ use turbopack_binding::{
         turbopack::{
             module_options::ModuleOptionsContext, resolve_options_context::ResolveOptionsContext,
             transition::ContextTransition, ModuleAssetContext,
-        },
+        }, ecmascript::chunk::EcmascriptChunkPlaceable,
     },
 };
 
 use crate::{
     project::Project,
+    react_lodable::create_react_lodable_manifest,
     route::{Endpoint, Route, Routes, WrittenEndpoint},
 };
 
@@ -673,6 +677,28 @@ impl AppEndpoint {
             )))
         }
 
+        async fn create_lodable_manifest(
+            entry: Vc<Box<dyn EcmascriptChunkPlaceable>>,
+            node_root: Vc<FileSystemPath>,
+            ty: &'static str,
+            pathname: &str,
+        ) -> Result<Vc<Box<dyn OutputAsset>>> {
+            create_react_lodable_manifest(entry).await?;
+
+            let manifest_path_prefix = get_asset_prefix_from_pathname(pathname);
+            let path = node_root.join(format!(
+                "server/app{manifest_path_prefix}/{ty}/react-loadable-manifest.json",
+            ));
+            let mut lodable_manifest: HashMap<String, LodableManifest> = Default::default();
+            lodable_manifest.insert("dummy".to_string(), LodableManifest::default());
+            Ok(Vc::upcast(VirtualOutputAsset::new(
+                path,
+                AssetContent::file(
+                    File::from(serde_json::to_string_pretty(&lodable_manifest)?).into(),
+                ),
+            )))
+        }
+
         let endpoint_output = match app_entry.config.await?.runtime.unwrap_or_default() {
             NextRuntime::Edge => {
                 // create edge chunks
@@ -777,6 +803,15 @@ impl AppEndpoint {
                 )?;
                 server_assets.push(app_paths_manifest_output);
 
+                let lodable_manifest_output = create_lodable_manifest(
+                    app_entry.rsc_entry,
+                    node_root,
+                    ty,
+                    &app_entry.pathname,
+                )
+                .await?;
+                server_assets.push(lodable_manifest_output);
+
                 AppEndpointOutput::Edge {
                     files,
                     server_assets: Vc::cell(server_assets),
@@ -810,6 +845,15 @@ impl AppEndpoint {
                         .to_string(),
                 )?;
                 server_assets.push(app_paths_manifest_output);
+
+                let lodable_manifest_output = create_lodable_manifest(
+                    app_entry.rsc_entry,
+                    node_root,
+                    ty,
+                    &app_entry.pathname,
+                )
+                .await?;
+                server_assets.push(lodable_manifest_output);
 
                 AppEndpointOutput::NodeJs {
                     rsc_chunk,
